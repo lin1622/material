@@ -1,0 +1,11 @@
+{
+    "name": "xiaoma/flash-material-upload",
+    "description": "生成资源文件",
+    "type": "project",
+    "minimum-stability": "dev",
+    "require": {
+        "symfony/filesystem": "4.4.x-dev",
+        "symfony/config": "4.4.x-dev",
+        "symfony/finder": "4.4.x-dev"
+    }
+}
