@@ -20,11 +20,11 @@ class FlashMaterial
 
     protected $fileTargetDir;
 
-    protected $spriteJsonPath;
+    public $spriteJsonPath;
 
-    protected $costumeJsonPath;
+    public $costumeJsonPath;
 
-    protected $backdropJsonPath;
+    public $backdropJsonPath;
 
     protected $fileDriver;
 
@@ -33,6 +33,9 @@ class FlashMaterial
     protected $materialJson;
 
     protected $analyzeSourceDriver;
+
+    protected $sourceMaterialJson;
+
 
     /**
      * @return mixed
@@ -66,7 +69,7 @@ class FlashMaterial
         $this->sourceMaterialJson = $sourceMaterialJson;
     }
 
-    protected $sourceMaterialJson;
+
 
     public function __construct()
     {
@@ -76,53 +79,58 @@ class FlashMaterial
         $this->backdropJsonPath = 'https://xmcdn.xiaoma.wang/xm_world/scratch/locale/medialibraries/backdropLibrary.json';
         $this->fileSourceDir = __DIR__.'/../src';
         $this->fileTargetDir =__DIR__.'/../out';
-        $this->analyzeSourceDriver = new AnalyzeSourceFile();
+        $this->analyzeSourceDriver = new AnalyzeMaterialFile();
     }
 
 
 
     public function scanSourceDir()
     {
-//        $this->finderDriver->in($this->fileSourceDir.'/backdrop');
-//
-//        foreach ($this->finderDriver->files() as $row ) {
-//            /* @var $row SplFileInfo*/
-//            if (in_array($row->getExtension(), $this->analyzeSourceDriver->filter)) {
-//                $this->materialJson['backdrop'][] =
-//                    $this->analyzeSourceDriver->doAnalyzing($row, 'backdrop');
-//            }
-//        }
-//        $this->analyzeSourceDriver->mvLibraryJson($this, 'backdrop');
-        $this->finderDriver->in($this->fileSourceDir.'/sprite');
-        foreach ($this->finderDriver->directories() as $row) {
+        #背景
+        $backdropFinder = new Finder();
+        $backdropFinder->in($this->fileSourceDir.'/backdrop');
+
+        foreach ($backdropFinder->files() as $row ) {
             /* @var $row SplFileInfo*/
-            print_r($row);
+            if (in_array($row->getExtension(), $this->analyzeSourceDriver->filter)) {
+                $this->materialJson['backdrop'][] =
+                    $this->analyzeSourceDriver->doAnalyzingBackdrop($row, 'backdrop');
+            }
         }
-        die();
+
+        # 角色
+        $dir = [];
+        $spriteFinder = new Finder();
+        $spriteFinder->depth('==0')->directories()->in($this->fileSourceDir.'/sprite');
+        foreach ($spriteFinder as $row) {
+            /* @var $row SplFileInfo*/
+            $dir[] = $row->getPathname();
+        }
+        $spriteFiles = [];
+        foreach ($dir as $path) {
+            $fileFinder = new Finder();
+            $fileFinder->depth('==0')->in($path);
+            foreach ($fileFinder as $file) {
+                if(!$file->isDir()) {
+                    if ($file->getFilenameWithoutExtension() == 'tag') {
+                        $spriteFiles[$file->getPath()]['tag'] = $file;
+                    } else {
+                        $spriteFiles[$file->getPath()][] = $file;
+                    }
+                };
+            }
+        }
+        $this->analyzeSourceDriver->doAnalyzingSprite($spriteFiles);
+
+        $this->analyzeSourceDriver->updateLibraryJson();
     }
 
 
-
-    public function getJsonFiles()
-    {
-        $spriteJson = file_get_contents($this->spriteJsonPath);
-        $costumeJson = file_get_contents($this->costumeJsonPath);
-        $backdropJson = file_get_contents($this->backdropJsonPath);
-        if ($spriteJson) {
-            $this->sourceMaterialJson['sprite'] = json_decode($spriteJson, true);
-        }
-        if ($costumeJson) {
-            $this->sourceMaterialJson['costume'] = json_decode($costumeJson, true);
-        }
-        if ($backdropJson) {
-            $this->sourceMaterialJson['backdrop'] = json_decode($backdropJson, true);
-        }
-    }
 
 
     public function run()
     {
-        $this->getJsonFiles();
+        $this->analyzeSourceDriver->getJsonFiles($this);
         $this->scanSourceDir();
     }
 }
