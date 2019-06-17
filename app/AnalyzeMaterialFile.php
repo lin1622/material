@@ -69,6 +69,82 @@ class AnalyzeMaterialFile
         return $init;
     }
 
+    public function doAnalyzingImageSize(SplFileInfo $file)
+    {
+        list($width, $height) = $this->getImageWidthAndHeight($file);
+        if ($width > 480 || $height > 360) {
+            $this->mkThumbnail(
+                $file->getPathname(),
+                480,
+                360,
+                $file->getPathname()
+        );
+        }
+    }
+
+    public function mkThumbnail($src, $width = null, $height = null, $filename = null) {
+
+        if (!isset($width) && !isset($height))
+            return false;
+
+        if (isset($width) && $width <= 0)
+            return false;
+
+        if (isset($height) && $height <= 0)
+            return false;
+
+        $size = getimagesize($src);
+
+        if (!$size)
+            return false;
+
+        list($src_w, $src_h, $src_type) = $size;
+
+        $src_mime = $size['mime'];
+
+        switch($src_type) {
+            case 1 :
+                $img_type = 'gif';
+                break;
+            case 2 :
+                $img_type = 'jpeg';
+                break;
+            case 3 :
+                $img_type = 'png';
+                break;
+            case 15 :
+                $img_type = 'wbmp';
+                break;
+            default :
+                return false;
+        }
+
+        if (!isset($width))
+            $width = $src_w * ($height / $src_h);
+
+        if (!isset($height))
+            $height = $src_h * ($width / $src_w);
+
+        $imagecreatefunc = 'imagecreatefrom' . $img_type;
+        $src_img = $imagecreatefunc($src);
+        $dest_img = imagecreatetruecolor($width, $height);
+        imagealphablending($dest_img,false);//这里很重要,意思是不合并颜色,直接用$img图像颜色替换,包括透明色;
+        imagesavealpha($dest_img,true);//这里很重要,意思是不要丢了$thumb图像的透明色;
+        imagecopyresampled($dest_img, $src_img, 0, 0, 0, 0, $width, $height, $src_w, $src_h);
+        $imagefunc = 'image' . $img_type;
+        if ($filename) {
+            $imagefunc($dest_img, $filename);
+        } else {
+            header('Content-Type: ' . $src_mime);
+            $imagefunc($dest_img);
+        }
+        imagedestroy($src_img);
+        imagedestroy($dest_img);
+        return true;
+
+    }
+
+
     public function doAnalyzingSprite(Array $fileArray)
     {
         foreach ($fileArray as $files) {
@@ -91,13 +167,13 @@ class AnalyzeMaterialFile
                             'baseLayerID' => -1,
                             'baseLayerMD5' => $md5Value,
                             'bitmapResolution' => 1,
-                            'rotationCenterX' => $width,
-                            'rotationCenterY' => $height
+                            'rotationCenterX' => ceil($width / 2),
+                            'rotationCenterY' => ceil($height / 2)
                         ];
                     }
                 }
                 $this->newSpriteLibraryRecord(
-                    $dirName, '/xiaoma/sprite/'.md5($dirName).'.json', $tagsArr, $costumeCount
+                    $dirName, 'xiaoma/sprite/'.md5($dirName).'.json', $tagsArr, $costumeCount
                 );
                 $this->newMd5SpriteJson(basename($tagText->getPath()), $costumeInfo);
             }
@@ -158,7 +234,7 @@ class AnalyzeMaterialFile
         if (!empty($this->currentMaterialJson['sprite'])) {
             $newSpriteLibrary = array_merge($this->currentMaterialJson['sprite'], $this->sourceMaterialJson['sprite']);
             $this->fileDriver->dumpFile(
-                $this->putOutBasePath().'/spriteLibrary.json',
+                $this->putOutBasePath().'/sprite-Library.json',
                 json_encode($newSpriteLibrary)
             );
         }
@@ -166,16 +242,16 @@ class AnalyzeMaterialFile
         if (!empty($this->currentMaterialJson['backdrop'])) {
             $newBackdropLibrary = array_merge($this->currentMaterialJson['backdrop'], $this->sourceMaterialJson['backdrop']);
             $this->fileDriver->dumpFile(
-                $this->putOutBasePath().'/backdropLibrary.json',
+                $this->putOutBasePath().'/backdrop-Library.json',
                 json_encode($newBackdropLibrary)
             );
         }
 
-        #backdrop
+        #costume
         if (!empty($this->currentMaterialJson['costume'])) {
             $newCostumeLibrary = array_merge($this->currentMaterialJson['costume'], $this->sourceMaterialJson['costume']);
             $this->fileDriver->dumpFile(
-                $this->putOutBasePath().'/costumeLibrary.json',
+                $this->putOutBasePath().'/costume-Library.json',
                 json_encode($newCostumeLibrary)
             );
         }
@@ -190,7 +266,7 @@ class AnalyzeMaterialFile
         $targetFile = $this->putOutBasePath().$newPathPrefix.'/costume/'.$targetFileName;
         $this->fileDriver->copy($file->getPathname(), $targetFile);
         $init = $this->getRules('costume');
-        $init['md5'] = '/'.$newPathPrefix.'/costume/'.$targetFileName;
+        $init['md5'] =  $newPathPrefix.'/costume/'.$targetFileName;
         $init['name'] = $file->getFilenameWithoutExtension();
         $init['tags'] = $tagArr;
         $this->currentMaterialJson['costume'][] =$init;

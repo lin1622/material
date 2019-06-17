@@ -86,10 +86,19 @@ class FlashMaterial
 
     public function scanSourceDir()
     {
+
+        #生成缩略图
+//        $reduce = new Finder();
+//        $reduce->in($this->fileSourceDir.'/');
+//        foreach ($reduce->files() as $row) {
+//            /* @var $row SplFileInfo*/
+//            if (in_array($row->getExtension(), $this->analyzeSourceDriver->filter)) {
+//                    $this->analyzeSourceDriver->doAnalyzingImageSize($row);
+//            }
+//        }
         #背景
         $backdropFinder = new Finder();
         $backdropFinder->in($this->fileSourceDir.'/backdrop');
-
         foreach ($backdropFinder->files() as $row ) {
             /* @var $row SplFileInfo*/
             if (in_array($row->getExtension(), $this->analyzeSourceDriver->filter)) {
@@ -97,7 +106,6 @@ class FlashMaterial
                     $this->analyzeSourceDriver->doAnalyzingBackdrop($row, 'backdrop');
             }
         }
-
         # 角色
         $dir = [];
         $spriteFinder = new Finder();
